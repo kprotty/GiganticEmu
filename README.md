@@ -13,15 +13,15 @@ This embodies a modified launcher used to launch Gigantic rather than relying on
 * the clients username
 * the clients password
 
-and sends this information to the [Auth Server](###authserver) located at the server address to retrieve both 1) an authentication token and 2) the address of the [Mice Server](###miceserver).
+and sends this information to the [Data Server](###dataserver) located at the server address to retrieve both 1) an authentication token and 2) the address of the [Mice Server](###miceserver).
 
 The launcher now launches the game (Gigantic, usually located in `Binaries\\Win64\\RxGame-Win64-Shipping.exe`) as well as a tcp server. The patched ArcSDK in the game connects to this tcp server and receives the token + user info + mice server address which it will use for player, lobby and party information.
 
-### AuthServer
-The auth server (from what I can tell) is reponsibly for handling sign-in information and responding with authenticated information (username, token, friends, etc.) as well as the server address of the [Mice Server](###miceserver). It seems to also handle match history, leaderboards and cdn inventory items? (More info is needed here)
+### DataServer
+The data server (from what I can tell) is reponsibly for handling sign-in information and responding with authenticated information (username, token, friends, etc.) as well as the server address of the [Mice Server](###miceserver). It seems to also handle match history, leaderboards and cdn inventory items? (More info is needed here)
 
 ### MiceServer
-The mice server is in charge of party matches, queuing up and starting games. Gigantic, using the data received from `ArcSDK <- Launcher <- AuthServer` connects to the mice server through TCP and has the option to utilize Salsa/(12 or 15) for encryption. Once a party and match are found, each client for the match is sent some session info which contains the address of the [Match Server](###matchserver) used to communicate game data while playing with each other. Some of the features the mice server handles are:
+The mice server is in charge of party matches, queuing up and starting games. Gigantic, using the data received from `ArcSDK <- Launcher <- DataServer` connects to the mice server through TCP and has the option to utilize Salsa/(12 or 15) for encryption. Once a party and match are found, each client for the match is sent some session info which contains the address of the [Match Server](###matchserver) used to communicate game data while playing with each other. Some of the features the mice server handles are:
 
 * Party Queuing/Messaging/Hosting/Inviting
 * Friend List/Request/Response/Notification
