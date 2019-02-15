@@ -2,7 +2,7 @@
 Experimenting with recreating a custom client for Gigantic. This repo is just a reference implementation for building up on and documenting the existing work done by Gabs.
 
 ## Architecture
-The game is required to be patched in a few ways in order to be playable. Each root folder in the repo corresponds to a required component in the architecture that is in need of patching or rewrite.
+The game is required to be patched in a few ways in order to be playable. Each (soon to be) root folder in the repo corresponds to a required component in the architecture that is in need of patching or rewrite.
 
 ### ArcSDK
 The Gigantic client uses `arksdk.dll` in order to obtain user information, friends, and a link to the [Mice Server](###miceserver). In order for the client to connect to the custom server (instead of Arc/Motiga servers), a different dll needs to be compiled with the code in the `ArcSDK` folder and the resulting binary (`arksdk.dll`) replacing the existing one in Gigantic's folder.
