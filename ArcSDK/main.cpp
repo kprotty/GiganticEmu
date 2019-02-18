@@ -72,7 +72,7 @@ EXTERN_DLL_EXPORT int64_t CC_GetTokenEx(const wchar_t* arg1, const wchar_t* arg2
     Usually acquired from arc client which launches the game.
     Was formatted like this: "XHj3VK1webHFQchh"
     */
-    ArcWriteString(arc_account.token, buffer, buffer_size);
+    ArcWriteString(L"zwl42ixhzshhfajvt8likv8ujkyoxlrn", buffer, buffer_size);
     return 0;
 }
 
