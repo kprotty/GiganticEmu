@@ -7,8 +7,8 @@ defmodule DS.Mice.Server do
     clients: MapSet.new(),
     parties: MapSet.new(),
     match_parties: MapSet.new(),
-    ck: "SALSA_CLIENT_KEY",
-    sk: "SALSA_SERVER_KEY"
+    ck: Application.get_env(:ds, :salsa_ck, nil),
+    sk: Application.get_env(:ds, :salsa_sk, nil),
   )
 
   def child_spec(options), do: %{
@@ -23,11 +23,9 @@ defmodule DS.Mice.Server do
     GenServer.start_link(__MODULE__, options, name: __MODULE__)
   end
   
-  def init([port: port, salsa_ck: ck, salsa_sk: sk]) do
-    self = %Server{ck: ck, sk: sk, port: port}
-    options = [port: self.port]
+  def init(options=[port: port]) do
     {:ok, _} = :ranch.start_listener(DS.Mice.Tcp, :ranch_tcp, options, DS.Mice.Client, [])
-    {:ok, self}
+    {:ok, %Server {port: port}}
   end
 
   def add_client(client), do:

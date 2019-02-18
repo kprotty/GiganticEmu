@@ -5,12 +5,7 @@ defmodule DS.Application do
   @http_port Application.get_env(:ds, :http_port, 12000)
   @mice_port Application.get_env(:ds, :mice_port, 13000)
 
-  defp mice_server, do: DS.Mice.Server.child_spec(
-    port: @mice_port,
-    salsa_ck: Application.get_env(:ds, :salsa_ck),
-    salsa_sk: Application.get_env(:ds, :salsa_sk)
-  )
-
+  defp mice_server, do: DS.Mice.Server.child_spec(port: @mice_port)
   defp http_server, do: Plug.Cowboy.child_spec(
     scheme: :http,
     plug: DS.Http.Router,
