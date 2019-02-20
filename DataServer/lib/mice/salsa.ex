@@ -1,94 +1,111 @@
 defmodule DS.Mice.Salsa do
-  use Bitwise 
+  use Bitwise
   alias __MODULE__
 
   defstruct(
     rounds: 0,
-    matrix: {},
+    matrix: {}
   )
 
   def new(key, rounds) do
-    [k1, k2, k3, k4] = for <<k::4 <- key>>, do: k
+    [k1, k2, k3, k4] = for <<k::little-32 <- key>>, do: k
     [c1, c2, c3, c4] = [0x61707865, 0x3120646e, 0x79622d36, 0x6b206574]
-    %Salsa{rounds: rounds, matrix: :array.fix(:array.from_list([
-      c1, k1, k2, k3,
-      k4, c2, 0,  0,
-      0,  0,  c3, k1,
-      k2, k3, k4, c4,
-    ]))}
+    %Salsa{
+      rounds: rounds, 
+      matrix: {
+        c1, k1, k2, k3,
+        k4, c2, 0,  0,
+        0,  0,  c3, k1,
+        k2, k3, k4, c4,
+      }  
+    }
   end
 
-  # looks like encrypt and decrypt to the same thing
-  def decrypt(self, input), do: encrypt(self, input, [])
-  def encrypt(self, input), do: encrypt(self, input, [])
-  def encrypt(self, input, output) when byte_size(input) <= 64, do:
-    Enum.reverse(output)
-  def encrypt(self, <<input::bytes-size(64), rest::binary>>, output) do
-    %Salsa{rounds: rounds, matrix: matrix} = self
-    data = salsa_block(matrix, matrix, rounds) |> :crytpo.exor(input)
-    encrypt(%{self | matrix: update(matrix)}, rest, [data | output])
+  # interfaces for encrypting and decrypting
+  def decrypt(self, input), do: encrypt(self, input)
+  def encrypt(self, input) do
+    chunks = for <<chunk::bytes-size(64) <- input>>, do: chunk
+    encrypt_chunks({self, []}, chunks)
   end
+
+  # iterate and encrypt 64-byte chunks
+  defp encrypt_chunks({self, output}, []), do: {self, Enum.reverse(output)}
+  defp encrypt_chunks({self, output}, [chunk | chunks]), do:
+    gen_salsa_block(self)
+      |> xor_bytes(self.matrix, chunk)
+      |> update_matrix(output, self)
+      |> encrypt_chunks(chunks)
+
+  # matrix / stream / tuple getters & setters
+  defp get(tuple, index), do: elem(tuple, index)
+  defp get_with(tuple, index), do: {tuple, get(tuple, index)}
+  defp update(tuple, index, updater), do:
+    put_elem(tuple, index, updater.(get(tuple, index)))
 
   # TODO: figure out how the client handles position overflow
-  defp update(matrix) do
-    matrix = set(matrix, 8, &(&1 + 1))
-    case get(matrix, 8) do
-      0 -> set(matrix, 9, &(&1 + 1))
-      _ -> matrix
+  defp update_matrix(input, output, %Salsa{matrix: matrix}=self) do
+    matrix = case update(matrix, 8, &(&1 + 1)) |> get_with(8) do
+      {matrix, 0} -> update(matrix, 9, &(&1 + 1))
+      {matrix, _} -> matrix
     end
+    {%{self | matrix: matrix}, [input | output]}
   end
 
-  # array alias getter/setter
-  defp get(array, index), do: :array.get(array, index)
-  defp set(array, index, reducer), do:
-    :array.set(index, reducer.(get(array, index)), array)
-
-  # uint32_t calculations
-  defp u32(x), do: x &&& 0xffffffff
+  # uint32_t operations
+  defp u32(x), do: 
+    x &&& 0xffffffff
   defp rotl(x, shift), do:
     ((x <<< shift) ||| (x >>> (32 - shift))) |> u32
   defp merge(array, left, right, shift), do:
     (get(array, left) + get(array, right)) |> u32 |> rotl(shift)
 
-  # generating salsa block as iodata
-  defp salsa_block(matrix, stream, rounds) when rounds <= 0, do:
-    :array.to_list(:array.map(&<<u32(get(matrix, &1) + &2)::32>>), stream)
-  defp salsa_block(matrix, stream, rounds) do
-    stream = set(stream,  4, &(&1 ^^^ merge(x,  0, 12,  7)))
-    stream = set(stream,  8, &(&1 ^^^ merge(x,  4,  0,  9)))
-    stream = set(stream, 12, &(&1 ^^^ merge(x,  8,  4, 13)))
-    stream = set(stream,  0, &(&1 ^^^ merge(x, 12,  8, 18)))
-    stream = set(stream,  9, &(&1 ^^^ merge(x,  5,  1,  7)))
-    stream = set(stream, 13, &(&1 ^^^ merge(x,  9,  5,  9)))
-    stream = set(stream,  1, &(&1 ^^^ merge(x, 13,  9, 13)))
-    stream = set(stream,  5, &(&1 ^^^ merge(x,  1, 13, 18)))
-    stream = set(stream, 14, &(&1 ^^^ merge(x, 10,  6,  7)))
-    stream = set(stream,  2, &(&1 ^^^ merge(x, 14, 10,  9)))
-    stream = set(stream,  6, &(&1 ^^^ merge(x,  2, 14, 13)))
-    stream = set(stream, 10, &(&1 ^^^ merge(x,  6,  2, 18)))
-    stream = set(stream,  3, &(&1 ^^^ merge(x, 15, 11,  7)))
-    stream = set(stream,  7, &(&1 ^^^ merge(x,  3, 15,  9)))
-    stream = set(stream, 11, &(&1 ^^^ merge(x,  7,  3, 13)))
-    stream = set(stream, 15, &(&1 ^^^ merge(x, 11,  7, 18)))
+  # xor bytes using salsa_block() as stream
+  defp xor_bytes({value, index}, matrix), do:
+    <<u32(get(matrix, index) + value) :: 32>>
+  defp xor_bytes(block, matrix, chunk), do:
+    Tuple.to_list(block)
+      |> Stream.with_index
+      |> Stream.map(&(xor_bytes(&1, matrix)))
+      |> Enum.to_list
+      |> :crypto.exor(chunk)
 
-    stream = set(stream,  1, &(&1 ^^^ merge(x,  0,  3,  7)))
-    stream = set(stream,  2, &(&1 ^^^ merge(x,  1,  0,  9)))
-    stream = set(stream,  3, &(&1 ^^^ merge(x,  2,  1, 13)))
-    stream = set(stream,  0, &(&1 ^^^ merge(x,  3,  2, 18)))
-    stream = set(stream,  6, &(&1 ^^^ merge(x,  5,  4,  7)))
-    stream = set(stream,  7, &(&1 ^^^ merge(x,  6,  5,  9)))
-    stream = set(stream,  4, &(&1 ^^^ merge(x,  7,  6, 13)))
-    stream = set(stream,  5, &(&1 ^^^ merge(x,  4,  7, 18)))
-    stream = set(stream, 11, &(&1 ^^^ merge(x, 10,  9,  7)))
-    stream = set(stream,  8, &(&1 ^^^ merge(x, 11, 10,  9)))
-    stream = set(stream,  9, &(&1 ^^^ merge(x,  8, 11, 13)))
-    stream = set(stream, 10, &(&1 ^^^ merge(x,  9,  8, 18)))
-    stream = set(stream, 12, &(&1 ^^^ merge(x, 15, 14,  7)))
-    stream = set(stream, 13, &(&1 ^^^ merge(x, 12, 15,  9)))
-    stream = set(stream, 14, &(&1 ^^^ merge(x, 13, 12, 13)))
-    stream = set(stream, 15, &(&1 ^^^ merge(x, 14, 13, 18)))
+  defp gen_salsa_block(%Salsa{matrix: matrix, rounds: rounds}) do
+    Enum.reduce(0..div(rounds, 2), matrix, fn _, block ->
+      block = update(block,  4, &(&1 ^^^ merge(block,  0, 12,  7)))
+      block = update(block,  8, &(&1 ^^^ merge(block,  4,  0,  9)))
+      block = update(block, 12, &(&1 ^^^ merge(block,  8,  4, 13)))
+      block = update(block,  0, &(&1 ^^^ merge(block, 12,  8, 18)))
+      block = update(block,  9, &(&1 ^^^ merge(block,  5,  1,  7)))
+      block = update(block, 13, &(&1 ^^^ merge(block,  9,  5,  9)))
+      block = update(block,  1, &(&1 ^^^ merge(block, 13,  9, 13)))
+      block = update(block,  5, &(&1 ^^^ merge(block,  1, 13, 18)))
+      block = update(block, 14, &(&1 ^^^ merge(block, 10,  6,  7)))
+      block = update(block,  2, &(&1 ^^^ merge(block, 14, 10,  9)))
+      block = update(block,  6, &(&1 ^^^ merge(block,  2, 14, 13)))
+      block = update(block, 10, &(&1 ^^^ merge(block,  6,  2, 18)))
+      block = update(block,  3, &(&1 ^^^ merge(block, 15, 11,  7)))
+      block = update(block,  7, &(&1 ^^^ merge(block,  3, 15,  9)))
+      block = update(block, 11, &(&1 ^^^ merge(block,  7,  3, 13)))
+      block = update(block, 15, &(&1 ^^^ merge(block, 11,  7, 18)))
 
-    salsa_block(self, stream, rounds - 2)
+      block = update(block,  1, &(&1 ^^^ merge(block,  0,  3,  7)))
+      block = update(block,  2, &(&1 ^^^ merge(block,  1,  0,  9)))
+      block = update(block,  3, &(&1 ^^^ merge(block,  2,  1, 13)))
+      block = update(block,  0, &(&1 ^^^ merge(block,  3,  2, 18)))
+      block = update(block,  6, &(&1 ^^^ merge(block,  5,  4,  7)))
+      block = update(block,  7, &(&1 ^^^ merge(block,  6,  5,  9)))
+      block = update(block,  4, &(&1 ^^^ merge(block,  7,  6, 13)))
+      block = update(block,  5, &(&1 ^^^ merge(block,  4,  7, 18)))
+      block = update(block, 11, &(&1 ^^^ merge(block, 10,  9,  7)))
+      block = update(block,  8, &(&1 ^^^ merge(block, 11, 10,  9)))
+      block = update(block,  9, &(&1 ^^^ merge(block,  8, 11, 13)))
+      block = update(block, 10, &(&1 ^^^ merge(block,  9,  8, 18)))
+      block = update(block, 12, &(&1 ^^^ merge(block, 15, 14,  7)))
+      block = update(block, 13, &(&1 ^^^ merge(block, 12, 15,  9)))
+      block = update(block, 14, &(&1 ^^^ merge(block, 13, 12, 13)))
+      block = update(block, 15, &(&1 ^^^ merge(block, 14, 13, 18)))
+
+      block
+    end)
   end
-
 end
