@@ -1,4 +1,4 @@
-defmodule Salsa do
+defmodule DS.Mice.Salsa do
   use Bitwise
   alias __MODULE__
   import String, only: [slice: 3]
@@ -64,7 +64,7 @@ defmodule Salsa do
   defp add_to_u32({left, right}), do:
     <<u32(left + right) :: little-32>>
   defp xor(stream, input), do:
-    slice(stream, 0, byte_size(input)) |> :crypto.exor(input)
+    slice(stream, 0, byte_size(input) - 1) |> :crypto.exor(input)
   defp merge(matrix, index, left, right, shift), do:
     put_elem(matrix, index,
       (elem(matrix, left) + elem(matrix, right))
@@ -106,5 +106,6 @@ defmodule Salsa do
     matrix = merge(matrix, 13, 12, 15,  9)
     matrix = merge(matrix, 14, 13, 12, 13)
     matrix = merge(matrix, 15, 14, 13, 18)
+    matrix
   end
 end

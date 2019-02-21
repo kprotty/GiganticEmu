@@ -44,11 +44,11 @@ defmodule DS.Mice.Client do
   end
 
   defp authenticate(self, data) do
-    data = binary_part(data, 1, byte_size(data) - 2)
-    data = Salsa.new(@ck, 12) |> Salsa.decrypt(data)
+
+    data = String.slice(data, 1, byte_size(data))
+    {_, data} = Salsa.new(@ck, 12) |> Salsa.decrypt(data)
     data = Jason.decode!(data)
-    
-    IO.puts data, label: "Auth"
+    IO.inspect data, label: "Auth"
 
     self
   end
