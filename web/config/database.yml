@@ -1,0 +1,26 @@
+development:
+  adapter: postgresql
+  database: gigantic_dev
+  username: <%= ENV.fetch("DB_USER")%>
+  password: <%= ENV.fetch("DB_PASS")%>
+  encoding: unicode
+  host: <%= ENV.fetch("DB_HOST")%>
+  pool: 5
+
+test:
+  adapter: postgresql
+  database: gigantic_test
+  username: <%= ENV.fetch("DB_USER")%>
+  password: <%= ENV.fetch("DB_PASS")%>
+  encoding: unicode
+  host: <%= ENV.fetch("DB_HOST")%>
+  pool: 5
+
+production:
+  adapter: postgresql
+  database: gigantic_prod
+  username: <%= ENV.fetch("DB_USER")%>
+  password: <%= ENV.fetch("DB_PASS")%>
+  encoding: unicode
+  host: <%= ENV.fetch("DB_HOST")%>
+  pool: 5

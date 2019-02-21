@@ -1,0 +1,5 @@
+<div class="container">
+  <% if notice %><p class="notice alert-info"><%= notice %></p><% end %>
+  <% if alert %><p class="alert alert-warning"><%= alert %></p><% end %>
+  <%= yield %>
+</div>
