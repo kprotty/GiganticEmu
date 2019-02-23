@@ -7,3 +7,30 @@ In order to build it, one must have Visual Studio installed then open a "Develop
 msbuild ArcSDK.vcxproj /p:configuration=debug
 ```
 The resulting 2 files, `ArcSDK.dll` and `ArcSDK.pdb` will be located in a newly created directory `x64/debug`. These need to be copied into and replace the existing ones in Gigantics binaries.
+
+### Notes
+Exported symbols
+```
+CC_SetViewableRect
+CC_RunCallbacks
+CC_GetAccountName
+CC_GetArcID
+CC_GetArcRunningMode
+ArcFriends
+CC_LaunchClient
+CC_Init
+CC_UnInit
+CC_GetTokenEx
+CC_RegisterCallback
+CC_GetSteamTicket
+CC_GotoUrlInOverlay
+?Get@ArcID@CC_SDK@@QEBAPEA_WXZ
+?Set@ArcID@CC_SDK@@QEAAXPEB_W@Z
+??4ArcID@CC_SDK@@QEAAAEAV01@AEBV01@@Z
+??1ArcID@CC_SDK@@QEAA@XZ
+??0ArcID@CC_SDK@@QEAA@XZ
+CC_UnregisterCallback
+CC_InstalledFromArc
+CC_GetLaunchedParameter
+CC_GetNickName
+```

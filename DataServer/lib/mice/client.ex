@@ -1,56 +1,66 @@
 defmodule DS.Mice.Client do
-  use GenServer
-  alias __MODULE__
-  alias DS.Mice.{Salsa, Server}
+  use Bitwise
+  use DS.Mice.TcpClient
+  import String, only: [slice: 2]
+
+  alias DS.Mice.{Player, Salsa}
+  alias DS.Database.{Repo, User}
 
   defstruct(
     socket: nil,
-    transport: nil,
+    player: nil,
+    buffer: <<>>,
     salsa_in: nil,
     salsa_out: nil
   )
 
   @ck Application.get_env(:ds, :salsa_ck)
-  @sck Application.get_env(:ds, :salsa_sk)
+  @sck Application.get_env(:ds, :salsa_sck)
 
-  def start_link(ref, socket, transport, _options), do:
-    {:ok, :proc_lib.spawn_link(__MODULE__, :init, [{ref, socket, transport}])}
-
-  def init({ref, socket, transport}) do
-    :ok = :ranch.accept_ack(ref)
-    :ok = transport.setopts(socket, [active: true])
-    :gen_server.enter_loop(__MODULE__, [], %Client{
-      socket: socket,
-      transport: transport
-    })
+  defp new(socket) do
+    %Self{socket: socket}
   end
 
-  def handle_info({:tcp_closed, _}, self) do
-    Server.drop_client(self)
-    {:stop, :normal, self}
+  defp on_close(_self, _reason) do
+    :ok # unbind
   end
 
-  def handle_info({:tcp_error, _, _reason}, self) do
-    Server.drop_client(self)
-    {:stop, :normal, self}
+  # equivalent to Ruby's Array.pack('w')
+  defp pack_w(0, []), do: [0]
+  defp pack_w(0, bytes), do: bytes
+  defp pack_w(n, []), do:
+    pack_w(n >>> 7, [n &&& 0x7f])
+  defp pack_w(n, bytes), do:
+    pack_w(n >>> 7, [((n &&& 0x7f) ||| 0x80) | bytes])
+
+  # send the encrypted json data with the length BER-encoded prepended
+  defp send_out(data, %Self{salsa_out: salsa_out}=self) do
+    {salsa_out, data} = Salsa.encrypt(salsa_out, Jason.encode!(data))
+    length = IO.iodata_length(data) |> pack_w([])
+    send_data(self, [length, data])
+    %{self | salsa_out: salsa_out}
   end
 
-  def handle_info({:tcp, _, data}, %Client{salsa_in: nil}=self) do
-    self = authenticate(%{self |
-      salsa_in: Salsa.new(@sck, 16),
-      salsa_out: Salsa.new(@sck, 16)
-    }, data)
-    {:noreply, self}
+  defp receive_data(%Self{player: nil}=self, data) do
+    # extract token from json response: [token, ?]
+    data = slice(data, 1..-1)
+    data = Salsa.new(@ck, 12) |> Salsa.decrypt(data) |> elem(1)
+    token = Jason.decode!(data) |> hd
+
+    # find the user by the token, create a player and send auth_response
+    with %User{}=user <- Repo.get_by(User, token: token) do
+      player = Player.new(user)
+      send_out(Player.auth_response(player), %{self |
+        player: player,
+        salsa_in: Salsa.new(@sck, 16),
+        salsa_out: Salsa.new(@sck, 16)
+      })
+    else
+      _ -> close(self, "User with token #{token} doesnt exist")
+    end
   end
 
-  defp authenticate(self, data) do
-
-    data = String.slice(data, 1, byte_size(data))
-    {_, data} = Salsa.new(@ck, 12) |> Salsa.decrypt(data)
-    data = Jason.decode!(data)
-    IO.inspect data, label: "Auth"
-
+  defp receive_data(%Self{buffer: buffer}=self, data) do
     self
   end
-
 end

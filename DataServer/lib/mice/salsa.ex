@@ -1,7 +1,7 @@
 defmodule DS.Mice.Salsa do
   use Bitwise
   alias __MODULE__
-  import String, only: [slice: 3]
+  import String, only: [slice: 2]
 
   defstruct(
     rounds: 0,
@@ -28,11 +28,11 @@ defmodule DS.Mice.Salsa do
   def encrypt(self, input, output) do
     stream = salsa_block(self)
     self = update_matrix(self)
-    case xor(stream, input) do
+    case stream_xor(stream, input) do
       data when byte_size(data) <= 64 ->
         {self, Enum.reverse([data | output])}
       data ->
-        encrypt(self, slice(data, 64, byte_size(data)), [data | output])
+        encrypt(self, slice(data, 64..-1), [data | output])
     end
   end
 
@@ -63,8 +63,10 @@ defmodule DS.Mice.Salsa do
   # salsa functions
   defp add_to_u32({left, right}), do:
     <<u32(left + right) :: little-32>>
-  defp xor(stream, input), do:
-    slice(stream, 0, byte_size(input) - 1) |> :crypto.exor(input)
+  defp mslice(left, right), do:
+    binary_part(left, 0, min(byte_size(left), byte_size(right)))
+  defp stream_xor(stream, input), do:
+    mslice(stream, input) |> :crypto.exor(mslice(input, stream))
   defp merge(matrix, index, left, right, shift), do:
     put_elem(matrix, index,
       (elem(matrix, left) + elem(matrix, right))
@@ -90,6 +92,7 @@ defmodule DS.Mice.Salsa do
     matrix = merge(matrix,  7,  3, 15,  9)
     matrix = merge(matrix, 11,  7,  3, 13)
     matrix = merge(matrix, 15, 11,  7, 18)
+    
     matrix = merge(matrix,  1,  0,  3,  7)
     matrix = merge(matrix,  2,  1,  0,  9)
     matrix = merge(matrix,  3,  2,  1, 13)
