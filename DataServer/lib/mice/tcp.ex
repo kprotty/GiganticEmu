@@ -30,7 +30,7 @@ defmodule DS.Mice.TcpClient do
       use GenServer
       alias __MODULE__, as: Self
 
-      @tcp_options [active: true, nodelay: true]
+      @tcp_options [active: true]
 
       def start_link(ref, socket, transport, _options), do:
         {:ok, :proc_lib.spawn_link(__MODULE__, :init, [{ref, socket, transport}])}

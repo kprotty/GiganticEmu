@@ -29,10 +29,10 @@ defmodule DS.Mice.Salsa do
     stream = salsa_block(self)
     self = update_matrix(self)
     case stream_xor(stream, input) do
-      data when byte_size(data) <= 64 ->
+      data when byte_size(input) <= 64 ->
         {self, Enum.reverse([data | output])}
       data ->
-        encrypt(self, slice(data, 64..-1), [data | output])
+        encrypt(self, slice(input, 64..-1), [data | output])
     end
   end
 
