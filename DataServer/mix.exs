@@ -12,7 +12,7 @@ defmodule DS.MixProject do
   ]
 
   def application, do: [
-    extra_applications: [:logger, :ecto, :postgrex],
+    extra_applications: [:logger, :calendar, :ecto, :postgrex],
     mod: {DS.Application, []}
   ]
 
@@ -25,9 +25,10 @@ defmodule DS.MixProject do
     {:ecto, "~> 3.0"},
     {:ecto_sql, "~> 3.0"},
     {:postgrex, ">= 0.0.0"},
+
     {:jason, "~> 1.1"},
     {:ranch, "~> 1.7"},
+    {:calendar, "~> 0.17"},
     {:plug_cowboy, "~> 2.0"},
-    {:bcrypt_elixir, "~> 2.0"},
   ]
 end

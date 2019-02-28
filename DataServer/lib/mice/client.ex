@@ -1,10 +1,10 @@
 defmodule DS.Mice.Client do
+  alias DS.Mice.{Player, Salsa}
+  alias DS.Database.{Repo, User}
+
   use Bitwise
   use DS.Mice.TcpClient
   import String, only: [slice: 2]
-
-  alias DS.Mice.{Player, Salsa}
-  alias DS.Database.{Repo, User}
 
   defstruct(
     socket: nil,
@@ -66,10 +66,13 @@ defmodule DS.Mice.Client do
   end
 
   defp receive_data(%Self{buffer: buffer}=self, data) do
-    IO.inspect {"received", buffer <> data}
     {self, commands} = decode_data(%{self | buffer: <<>>}, buffer <> data, [])
-    IO.inspect commands, label: "Commands"
-    self
+    Enum.reduce(commands, self, fn [command, payload, id], self ->
+      case DS.Mice.Handler.handle_command(self, command, payload) do
+        {self, nil} -> self
+        {self, data} -> encode_data([data, id], self)
+      end
+    end)
   end
 
   defp decode_data(self, <<first, _::binary>>=data, commands) when first >= 0x80, do:
@@ -80,7 +83,7 @@ defmodule DS.Mice.Client do
     decode_data(self, first, data, 1, commands)
   defp decode_data(self, <<>>, commands), do:
     {self, Enum.reverse(commands)}
-
+    
   defp decode_data(self, command_size, data, len_size, commands) do
     if command_size > byte_size(data) do
       {%{self | buffer: data}, Enum.reverse(commands)}
@@ -92,5 +95,4 @@ defmodule DS.Mice.Client do
       decode_data(%{self | salsa_in: salsa_in}, data, commands)
     end
   end
-
 end

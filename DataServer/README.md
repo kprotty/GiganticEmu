@@ -9,4 +9,4 @@ AuthUrlPrefix=http://localhost:12000/
 AuthUrlPrefix=http://localhost:12000/
 ```
 
-PostgresSQL: postgres@localhost:5432
+Elixir can be installed by following instructions on their main website. (Not for Ubuntu/Debian, the installation of the whole Erlang/OTP platform is not necessarily required (although the deb file is). Instead, simply `sudo apt-get install elixir erlang-dev`)

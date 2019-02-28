@@ -59,7 +59,6 @@ defmodule DS.Mice.TcpClient do
         transport.close(socket)
         %{self | socket: nil}
       end
-
     end
   end
 end
