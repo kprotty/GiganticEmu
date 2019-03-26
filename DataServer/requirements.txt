@@ -1,0 +1,4 @@
+sanic
+asyncio
+asyncpg
+python-dotenv
